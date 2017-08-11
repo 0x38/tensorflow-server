@@ -33,13 +33,17 @@ def main():
         server.join()
         
     elif job_name == 'worker':
-        with tf.device(tf.train.replica_device_setter(worker_device='/job:worker/task:%d/cpu:0' % task_index, cluster=cluster)):
+        with tf.device(
+                tf.train.replica_device_setter(
+                    ps_device='/job:ps/cpu:0', 
+                    worker_device='/job:worker/task:%d/gpu:0' % task_index, 
+                    cluster=cluster)):
             # this gets stored on parameter server
             W0 = tf.get_variable("W0",
                     initializer= tf.truncated_normal([NUM_FEATURES, HIDDEN_SIZE],
                                                       dtype=tf.float32), dtype=tf.float32)
 
-            with tf.device("/job:worker/task:%d/cpu:0" % task_index):
+            with tf.device("/job:worker/task:%d/gpu:0" % task_index):
                 W0_local = tf.get_variable("W0_local",
                     initializer= tf.truncated_normal([NUM_FEATURES, HIDDEN_SIZE],
                                                         dtype=tf.float32), dtype=tf.float32)
@@ -54,7 +58,7 @@ def main():
 
         init = tf.global_variables_initializer()
 
-        with tf.Session(server.target) as sess:
+        with tf.Session(server.target, config=tf.ConfigProto(log_device_placement=True)) as sess:
 
             sess.run(init)
             A_matrix = np.random.randn(BATCH_SIZE, NUM_FEATURES)
